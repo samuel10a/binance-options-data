@@ -1,0 +1,39 @@
+name: Recolección de datos de opciones Binance
+
+# Se ejecuta cada 15 minutos automáticamente, y también se puede lanzar
+# manualmente desde la pestaña "Actions" del repositorio (botón "Run workflow").
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+# Necesario para que el workflow pueda hacer commit y push de los CSV nuevos.
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Capturar snapshot de BTC
+        run: python collect_snapshot.py BTC
+
+      - name: Guardar los datos nuevos en el repositorio
+        run: |
+          git config user.name "options-data-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add outputs/history/
+          # Si no hay cambios (ej. la API falló y no se agregó nada), no truena -- simplemente no hace commit.
+          git diff --staged --quiet || git commit -m "Snapshot automático $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
